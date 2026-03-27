@@ -9,6 +9,7 @@ import { ColorGrading } from "./compositions/ColorGrading";
 import { AddOverlays } from "./compositions/AddOverlays";
 import { SocialMediaReformat } from "./compositions/SocialMediaReformat";
 import { FullPipeline } from "./compositions/FullPipeline";
+import { MyQuickClawAd } from "./compositions/MyQuickClawAd";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -135,6 +136,15 @@ export const RemotionRoot: React.FC = () => {
           src: "",
           pipeline: [],
         }}
+      />
+      <Composition
+        id="MyQuickClawAd"
+        component={MyQuickClawAd}
+        durationInFrames={1590}
+        fps={30}
+        width={1920}
+        height={1080}
+        defaultProps={{}}
       />
     </>
   );
