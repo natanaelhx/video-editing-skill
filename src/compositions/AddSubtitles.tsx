@@ -1,11 +1,13 @@
-﻿import React from "react";
+import React, { useMemo } from "react";
 import {
   AbsoluteFill,
   OffthreadVideo,
   useCurrentFrame,
   useVideoConfig,
   spring,
+  staticFile,
 } from "remotion";
+import { parseSrt, srtEntriesToFrames } from "../utils/srt-parser";
 
 interface SubtitleEntry {
   text: string;
@@ -15,7 +17,8 @@ interface SubtitleEntry {
 
 interface AddSubtitlesProps {
   src: string;
-  srtFile: string;
+  srtContent: string;   // conteúdo SRT como string (use staticFile() no Root.tsx)
+  srtFile: string;      // mantido para compatibilidade
   style: string;
   fontFamily: string;
   fontSize: number;
@@ -24,6 +27,7 @@ interface AddSubtitlesProps {
   position: string;
 }
 
+// Fallback para preview sem SRT
 const sampleSubtitles: SubtitleEntry[] = [
   { text: "Welcome to the video editor", startFrame: 30, endFrame: 120 },
   { text: "Powered by Remotion + AI", startFrame: 150, endFrame: 240 },
@@ -32,7 +36,8 @@ const sampleSubtitles: SubtitleEntry[] = [
 
 export const AddSubtitles: React.FC<AddSubtitlesProps> = ({
   src,
-  srtFile,
+  srtContent = "",
+  srtFile = "",
   style: captionStyle = "modern",
   fontFamily = "Inter",
   fontSize = 48,
@@ -43,14 +48,35 @@ export const AddSubtitles: React.FC<AddSubtitlesProps> = ({
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const currentSubtitle = sampleSubtitles.find(
+  // Parseia SRT real se disponível, senão usa sample
+  const subtitles = useMemo<SubtitleEntry[]>(() => {
+    if (srtContent && srtContent.trim().length > 0) {
+      try {
+        const parsed = parseSrt(srtContent);
+        return srtEntriesToFrames(parsed, fps).map((e) => ({
+          text: e.text,
+          startFrame: e.startFrame,
+          endFrame: e.endFrame,
+        }));
+      } catch {
+        return sampleSubtitles;
+      }
+    }
+    return sampleSubtitles;
+  }, [srtContent, fps]);
+
+  const currentSubtitle = subtitles.find(
     (sub) => frame >= sub.startFrame && frame <= sub.endFrame
   );
 
   const positionStyles: Record<string, React.CSSProperties> = {
     bottom: { bottom: 80, left: 0, right: 0, justifyContent: "center" },
     top: { top: 80, left: 0, right: 0, justifyContent: "center" },
-    center: { top: "50%", left: 0, right: 0, justifyContent: "center", transform: "translateY(-50%)" },
+    center: {
+      top: "50%", left: 0, right: 0,
+      justifyContent: "center",
+      transform: "translateY(-50%)",
+    },
   };
 
   return (
@@ -62,23 +88,18 @@ export const AddSubtitles: React.FC<AddSubtitlesProps> = ({
         />
       ) : (
         <AbsoluteFill
-          style={{
-            background: "linear-gradient(135deg, #1a1a3e, #2d1b69, #11001c)",
-          }}
+          style={{ background: "linear-gradient(135deg, #1a1a3e, #2d1b69, #11001c)" }}
         />
       )}
 
       {currentSubtitle && (
-        <div
-          style={{
-            position: "absolute",
-            display: "flex",
-            ...positionStyles[position],
-          }}
-        >
+        <div style={{ position: "absolute", display: "flex", ...positionStyles[position] }}>
           <div
             style={{
-              background: captionStyle === "modern" ? "linear-gradient(135deg, rgba(108,99,255,0.9), rgba(0,212,170,0.9))" : backgroundColor,
+              background:
+                captionStyle === "modern"
+                  ? "linear-gradient(135deg, rgba(108,99,255,0.9), rgba(0,212,170,0.9))"
+                  : backgroundColor,
               padding: "12px 32px",
               borderRadius: captionStyle === "modern" ? 16 : 4,
               fontFamily,
@@ -87,7 +108,11 @@ export const AddSubtitles: React.FC<AddSubtitlesProps> = ({
               fontWeight: 700,
               textAlign: "center",
               textShadow: "0 2px 8px rgba(0,0,0,0.5)",
-              transform: `scale(${spring({ frame: frame - currentSubtitle.startFrame, fps, config: { stiffness: 200, damping: 20 } })})`,
+              transform: `scale(${spring({
+                frame: frame - currentSubtitle.startFrame,
+                fps,
+                config: { stiffness: 200, damping: 20 },
+              })})`,
             }}
           >
             {currentSubtitle.text}
